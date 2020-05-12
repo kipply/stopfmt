@@ -7,11 +7,14 @@ REMOVE_WHITESPACE = re.compile(r"\n\s*")
 def find_short_ifs(view, settings):
     folds = []
     cur_pt = 0
-    for i in range(1000): # limited in case bugs, could be while True
-        if_stmt = view.find(r" +if[ \(](.*)[ \)]\{\n[^\{\}\n]*\n\s*\}", cur_pt)
+
+    for _ in range(1000): # limited in case bugs, could be while True
+        if_stmt = view.find(r"\s*if[ \(](.*)[ \)]\{\n[^\{\}\n]*\n\s*\}", cur_pt)
         if if_stmt is None or if_stmt.empty():
             break # no more found
 
+        # move past this one
+        cur_pt = if_stmt.end()
 
         # check that if we folded it the line wouldn't be too long
         stmt = view.substr(if_stmt)
@@ -19,19 +22,15 @@ def find_short_ifs(view, settings):
         if len(stmt) > settings.get('max_line_length', 100):
             continue
 
-        # print(stmt)
-
         # find the parts to fold, this is kinda overkill
         sub_pt = if_stmt.begin()
         for i in range(10): # limited in case bugs, could be while True
             line_break = view.find(r"\n\s*", sub_pt)
             if line_break is None or line_break.empty() or line_break.begin() >= if_stmt.end():
                 break # no more found
-            folds.append(line_break)
+            if (i > 0):
+                folds.append(line_break)
             sub_pt = line_break.end()
-
-        # move past this one
-        cur_pt = if_stmt.end()
 
     return folds
 
@@ -44,11 +43,16 @@ class FoldShortIfsCommand(sublime_plugin.TextCommand):
             self.view.unfold(folds)
 
 class FoldListener(sublime_plugin.EventListener):
-    def on_load(self, view):
+    def run_fold_check(self, view):
         if view.score_selector(0,'source.go') > 0:
             settings = sublime.load_settings("stopfmt.sublime-settings")
             if settings.get('auto_fold_go', False):
                 view.run_command('fold_short_ifs')
+
+    def on_load_async(self, view):
+        self.run_fold_check(view)
+    def on_pre_save_async(self, view):
+        self.run_fold_check(view)
 
 
 # ================ folding function bodies
@@ -111,7 +115,6 @@ class FoldBlockScopesCommand(sublime_plugin.TextCommand):
     def run(self, edit, **args):
         selector = args.get('selector') or 'meta.function meta.block'
         folds = self.view.find_by_selector(selector)
-        # print("folding " + len(folds))
         did_fold = self.view.fold(folds)
         if not did_fold: # already folded, toggle off
             self.view.unfold(folds)
@@ -119,7 +122,6 @@ class FoldBlockScopesCommand(sublime_plugin.TextCommand):
 class FoldFunctionBodiesCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         folds = find_all_functions(self.view)
-        # print("folding " + len(folds))
         did_fold = self.view.fold(folds)
         if not did_fold: # already folded, toggle off
             self.view.unfold(folds)
