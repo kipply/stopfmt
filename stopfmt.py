@@ -9,7 +9,7 @@ def find_short_ifs(view, settings):
     cur_pt = 0
 
     for _ in range(1000): # limited in case bugs, could be while True
-        if_stmt = view.find(r"\s*if .+{\s*\n\s*.+\s*\n\s*}", cur_pt)
+        if_stmt = view.find(r"\n\s*if .+{\s*\n\s*.+\s*\n\s*}(?!\s+else)", cur_pt)
         if if_stmt is None or if_stmt.empty():
             break # no more found
 
