@@ -10,6 +10,7 @@ def find_short_ifs(view, settings):
 
     for _ in range(1000): # limited in case bugs, could be while True
         if_stmt = view.find(r"\n\s*if .+{\s*\n\s*.+\s*\n\s*}(?!\s+else)", cur_pt)
+
         if if_stmt is None or if_stmt.empty():
             break # no more found
 
@@ -19,7 +20,8 @@ def find_short_ifs(view, settings):
         # check that if we folded it the line wouldn't be too long
         stmt = view.substr(if_stmt)
         stmt = REMOVE_WHITESPACE.sub(" ", stmt)
-        if len(stmt) > settings.get('max_line_length', 100):
+        print(stmt)
+        if len(stmt) > settings.get("max_line_length"):
             continue
 
         # find the parts to fold, this is kinda overkill
@@ -39,8 +41,8 @@ class FoldShortIfsCommand(sublime_plugin.TextCommand):
         settings = sublime.load_settings("stopfmt.sublime-settings")
         folds = find_short_ifs(self.view, settings)
         did_fold = self.view.fold(folds)
-        if not did_fold: # already folded, toggle off
-            self.view.unfold(folds)
+        # if not did_fold: # already folded, toggle off
+        #     self.view.unfold(folds)
 
 class FoldListener(sublime_plugin.EventListener):
     def run_fold_check(self, view):
@@ -50,8 +52,10 @@ class FoldListener(sublime_plugin.EventListener):
                 view.run_command('fold_short_ifs')
 
     def on_load_async(self, view):
+        view.run_command("unfold_all")
         self.run_fold_check(view)
     def on_pre_save_async(self, view):
+        view.run_command("unfold_all")
         self.run_fold_check(view)
 
 
